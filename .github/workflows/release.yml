@@ -18,17 +18,14 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Or your preferred Node.js version
+          node-version: '18'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build plugin
-        run: npm run build # Assumes 'npm run build' compiles main.ts to main.js
-
       - name: Generate version string
         id: version
-        run: echo "VERSION_NUMBER=0.1.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        run: echo "VERSION_NUMBER=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json
         run: |
@@ -38,9 +35,32 @@ jobs:
 
       - name: Update versions.json
         run: |
-          jq --arg version "${{ steps.version.outputs.VERSION_NUMBER }}" '. += {($version): $version}' versions.json > versions.json.tmp && mv versions.json.tmp versions.json
-          echo "Updated versions.json with version ${{ steps.version.outputs.VERSION_NUMBER }}"
+          # Get minAppVersion from manifest.json
+          MIN_APP_VERSION=$(jq -r '.minAppVersion' manifest.json)
+          jq --arg version "${{ steps.version.outputs.VERSION_NUMBER }}" --arg minApp "$MIN_APP_VERSION" '. += {($version): $minApp}' versions.json > versions.json.tmp && mv versions.json.tmp versions.json
+          echo "Updated versions.json with version ${{ steps.version.outputs.VERSION_NUMBER }} and minAppVersion $MIN_APP_VERSION"
           cat versions.json
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Verify build artifacts exist
+        run: |
+          echo "Checking for required files..."
+          ls -la
+          if [ ! -f "main.js" ]; then
+            echo "ERROR: main.js not found after build!"
+            exit 1
+          fi
+          if [ ! -f "manifest.json" ]; then
+            echo "ERROR: manifest.json not found!"
+            exit 1
+          fi
+          if [ ! -f "styles.css" ]; then
+            echo "WARNING: styles.css not found, creating empty file"
+            touch styles.css
+          fi
+          echo "All required files present"
 
       - name: Configure Git
         run: |
@@ -53,12 +73,15 @@ jobs:
           # Check if there are changes to commit
           if ! git diff --staged --quiet; then
             git commit -m "Bump version to ${{ steps.version.outputs.VERSION_NUMBER }}"
+            git push
           else
             echo "No version changes to commit."
           fi
       
       - name: Create Git tag
-        run: git tag -a "v${{ steps.version.outputs.VERSION_NUMBER }}" -m "Version ${{ steps.version.outputs.VERSION_NUMBER }}"
+        run: |
+          git tag -a "v${{ steps.version.outputs.VERSION_NUMBER }}" -m "Version ${{ steps.version.outputs.VERSION_NUMBER }}"
+          git push origin "v${{ steps.version.outputs.VERSION_NUMBER }}"
 
       - name: Create GitHub Release
         id: create_release
@@ -68,11 +91,23 @@ jobs:
         with:
           tag_name: "v${{ steps.version.outputs.VERSION_NUMBER }}"
           release_name: "Release v${{ steps.version.outputs.VERSION_NUMBER }}"
-          body: "Automated release for version ${{ steps.version.outputs.VERSION_NUMBER }}."
+          body: |
+            ## Lemonade Stand Plugin v${{ steps.version.outputs.VERSION_NUMBER }}
+            
+            Play the classic 1979 Lemonade Stand business simulation game right in Obsidian!
+            
+            ### Installation
+            - Install via BRAT using this repository URL
+            - Or download the release files and manually install to `.obsidian/plugins/lemonade-stand/`
+            
+            ### Changes
+            - Automated release for version ${{ steps.version.outputs.VERSION_NUMBER }}
+            
+            Enjoy running your virtual lemonade empire! 🍋
           draft: false
           prerelease: false
 
-      - name: Upload Release Assets
+      - name: Upload main.js
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -82,7 +117,7 @@ jobs:
           asset_name: main.js
           asset_content_type: application/javascript
 
-      - name: Upload Manifest
+      - name: Upload manifest.json
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -92,7 +127,7 @@ jobs:
           asset_name: manifest.json
           asset_content_type: application/json
       
-      - name: Upload Styles
+      - name: Upload styles.css
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
