@@ -1,10 +1,10 @@
 {
-	"id": "lemonade-stand",
-	"name": "Lemonade Stand",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Play the classic Lemonade Stand business simulation game from 1979 right in Obsidian!",
-	"author": "Matt Reider",
-	"authorUrl": "https://github.com/mreider",
-	"isDesktopOnly": false
+  "id": "lemonade-stand",
+  "name": "Lemonade Stand",
+  "version": "1.0.2",
+  "minAppVersion": "0.15.0",
+  "description": "Play the classic Lemonade Stand business simulation game from 1979 right in Obsidian!",
+  "author": "Matt Reider",
+  "authorUrl": "https://github.com/mreider",
+  "isDesktopOnly": false
 }
